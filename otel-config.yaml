@@ -1,0 +1,78 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  hostmetrics:
+    collection_interval: 10s
+    scrapers:
+      paging:
+        metrics:
+          system.paging.utilization:
+            enabled: true
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      disk: {}
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+      load: {}
+      memory: {}
+      network: {}
+      processes: {}
+
+processors:
+  batch:
+    send_batch_max_size: 100
+    send_batch_size: 10
+    timeout: 10s
+
+connectors:
+  datadog/connector: {}
+
+exporters:
+  datadog/exporter:
+    api:
+      site: ${DD_SITE}
+      key: ${DD_API_KEY}
+
+  prometheus:
+    endpoint: "0.0.0.0:9464"
+    namespace: "myservice"
+
+  otlp:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
+
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp, datadog/connector, datadog/exporter]
+
+    metrics:
+      receivers: [datadog/connector, otlp, hostmetrics]
+      processors: [batch]
+      exporters: [prometheus, datadog/exporter]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [loki, datadog/exporter]
